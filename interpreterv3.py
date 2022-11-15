@@ -12,6 +12,7 @@ class Type(Enum):
   STRING = 3
   VOID = 4
   FUNC = 5
+  OBJ = 6
 
 # Represents a value, which has a type and its value
 class Value:
@@ -95,19 +96,35 @@ class Interpreter(InterpreterBase):
   def _assign(self, tokens):
    if len(tokens) < 2:
      super().error(ErrorType.SYNTAX_ERROR,"Invalid assignment statement")
-   vname = tokens[0]
-   existing_value_type = self._get_value(tokens[0])
-   if (existing_value_type.type() == Type.FUNC):
-    if (len(tokens[1:]) > 1):
-      super().error(ErrorType.SYNTAX_ERROR,"Invalid assignment statement")
-    value_type = self._get_func(tokens[1])
+   
+   if ('.' in tokens[0]): # object found
+    vname = tokens[0].split('.')[0]
+    prop = tokens[0].split('.')[1]
+    check_obj = self._get_value(vname)
+    val = None # value to assign
+    if (check_obj.type() != Type.OBJ):
+      super().error(ErrorType.TYPE_ERROR,"Can't assign member of non-object")
+    if (len(tokens[1:]) == 1): # trying to assign a function possibly
+      check_func = self.func_manager.get_function_info(tokens[1])
+      if check_func is not None:
+        val = Value(Type.FUNC, check_func)
+    if (val is None):
+      val = self._eval_expression(tokens[1:])
+    check_obj.value()[prop] = val
    else:
-    value_type = self._eval_expression(tokens[1:])
-   if existing_value_type.type() != value_type.type():
-     super().error(ErrorType.TYPE_ERROR,
-                   f"Trying to assign a variable of {existing_value_type.type()} to a value of {value_type.type()}",
-                   self.ip)
-   self._set_value(tokens[0], value_type)
+    vname = tokens[0]
+    existing_value_type = self._get_value(tokens[0])
+    if (existing_value_type.type() == Type.FUNC):
+      if (len(tokens[1:]) > 1):
+        super().error(ErrorType.SYNTAX_ERROR,"Invalid assignment statement")
+      value_type = self._get_func(tokens[1])
+    else:
+      value_type = self._eval_expression(tokens[1:])
+    if existing_value_type.type() != value_type.type():
+      super().error(ErrorType.TYPE_ERROR,
+                    f"Trying to assign a variable of {existing_value_type.type()} to a value of {value_type.type()}",
+                    self.ip)
+    self._set_value(tokens[0], value_type)
    self._advance_to_next_statement()
 
   def _funccall(self, args):
@@ -325,6 +342,7 @@ class Interpreter(InterpreterBase):
     self.type_to_default[InterpreterBase.BOOL_DEF] = Value(Type.BOOL,False)
     self.type_to_default[InterpreterBase.VOID_DEF] = Value(Type.VOID,None)
     self.type_to_default[InterpreterBase.FUNC_DEF] = Value(Type.FUNC,self.func_manager.get_function_info('_default'))
+    self.type_to_default[InterpreterBase.OBJECT_DEF] = Value(Type.OBJ,{})
 
     # set up what types are compatible with what other types
     self.compatible_types = {}
@@ -335,6 +353,7 @@ class Interpreter(InterpreterBase):
     self.compatible_types[InterpreterBase.REFSTRING_DEF] = Type.STRING
     self.compatible_types[InterpreterBase.REFBOOL_DEF] = Type.BOOL
     self.compatible_types[InterpreterBase.FUNC_DEF] = Type.FUNC
+    self.compatible_types[InterpreterBase.OBJECT_DEF] = Type.OBJ
     self.reference_types = {InterpreterBase.REFINT_DEF, Interpreter.REFSTRING_DEF,
                             Interpreter.REFBOOL_DEF}
 
@@ -344,6 +363,7 @@ class Interpreter(InterpreterBase):
     self.type_to_result[Type.STRING] = 's'
     self.type_to_result[Type.BOOL] = 'b'
     self.type_to_result[Type.FUNC] = 'f'
+    self.type_to_result[Type.OBJ] = 'o'
 
   # run a program, provided in an array of strings, one string per line of source code
   def _setup_operations(self):
@@ -401,8 +421,18 @@ class Interpreter(InterpreterBase):
     if token == InterpreterBase.TRUE_DEF or token == Interpreter.FALSE_DEF:
       return Value(Type.BOOL, token == InterpreterBase.TRUE_DEF)
 
+    if '.' in token:
+      obj = self.env_manager.get(token.split('.')[0])
+      if obj == None:
+        super().error(ErrorType.NAME_ERROR,f"Unknown object {obj}", self.ip)
+      prop = token.split('.')[1]
+      if prop in obj.value():
+        val = obj.value()[prop]
+      else:
+        super().error(ErrorType.NAME_ERROR,f"Unknown object member {prop}", self.ip)
+    else:
     # look in environments for variable
-    val = self.env_manager.get(token)
+      val = self.env_manager.get(token)
     if val != None:
       return val
     # not found

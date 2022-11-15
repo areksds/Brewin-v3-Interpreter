@@ -37,7 +37,7 @@ test10 = [
 'endfunc',
 ]
 
-test = [
+test1 = [
 'func main void',
 ' var func a',
 ' assign a foo',
@@ -48,5 +48,26 @@ test = [
 'endfunc'
 ]
 
+test2 = [
+'func main void',
+' var object a',
+' assign a.a "test"',
+' assign a.b 0',
+' assign a.c False',
+' var object b',
+' assign b a',
+' assign b.a "testing"',
+' assign a.d foo',
+' funccall print a.a',
+' funccall print a.b',
+' funccall print a.c',
+' funccall b.d',
+'endfunc',
+'',
+'func foo void',
+' funccall print "Function foo reached"',
+'endfunc'
+]
+
 machine = Interpreter()
-machine.run(test10)
+machine.run(test2)
