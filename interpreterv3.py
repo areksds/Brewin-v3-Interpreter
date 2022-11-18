@@ -50,6 +50,7 @@ class Interpreter(InterpreterBase):
     self.ip = self.func_manager.get_function_info(InterpreterBase.MAIN_FUNC).start_ip
     self.return_stack = []
     self.terminate = False
+    self.skip = False # for lambdas
     self.env_manager = EnvironmentManager()   # used to track variables/scope
 
     # main interpreter run loop
@@ -65,6 +66,11 @@ class Interpreter(InterpreterBase):
       return
 
     args = tokens[1:]
+    if self.skip:
+      if tokens[0] == InterpreterBase.ENDLAMBDA_DEF and self.indents[self.ip] == self.indents[self.skip]:
+        self.skip = False
+      self._advance_to_next_statement()
+      return
 
     match tokens[0]:
       case InterpreterBase.ASSIGN_DEF:
@@ -87,6 +93,10 @@ class Interpreter(InterpreterBase):
         self._endwhile(args)
       case InterpreterBase.VAR_DEF: # v2 statements
         self._define_var(args)
+      case InterpreterBase.LAMBDA_DEF: # v3 statements
+        self._lambda(args)
+      case InterpreterBase.ENDLAMBDA_DEF:
+        self._endfunc()
       case default:
         raise Exception(f'Unknown command: {tokens[0]}')
 
@@ -103,20 +113,22 @@ class Interpreter(InterpreterBase):
     check_obj = self._get_value(vname)
     val = None # value to assign
     if (check_obj.type() != Type.OBJ):
-      super().error(ErrorType.TYPE_ERROR,"Can't assign member of non-object")
+      super().error(ErrorType.TYPE_ERROR,"Can't assign member of non-object", self.ip)
     if (len(tokens[1:]) == 1): # trying to assign a function possibly
       check_func = self.func_manager.get_function_info(tokens[1])
       if check_func is not None:
-        val = Value(Type.FUNC, check_func)
+        val = Value(Type.FUNC, copy.deepcopy(check_func))
     if (val is None):
       val = self._eval_expression(tokens[1:])
-    check_obj.value()[prop] = val
+    temp = check_obj.value()
+    temp[prop] = val
+    check_obj.set(Value(Type.OBJ, temp))
    else:
     vname = tokens[0]
     existing_value_type = self._get_value(tokens[0])
     if (existing_value_type.type() == Type.FUNC):
       if (len(tokens[1:]) > 1):
-        super().error(ErrorType.SYNTAX_ERROR,"Invalid assignment statement")
+        super().error(ErrorType.SYNTAX_ERROR,"Invalid assignment statement", self.ip)
       value_type = self._get_func(tokens[1])
     else:
       value_type = self._eval_expression(tokens[1:])
@@ -144,14 +156,28 @@ class Interpreter(InterpreterBase):
       self.ip = self._find_first_instruction(args[0])
       self._create_new_environment(args[0], args[1:])  # Create new environment, copy args into new env
 
+  def _lambda(self, args):
+    lambda_name = InterpreterBase.LAMBDA_DEF + ':' + str(self.ip)
+    # copy current environment into lambda for capturing
+    self.func_manager.set_env(lambda_name, copy.deepcopy(self.env_manager.environment[-1]))
+    result_var = InterpreterBase.RESULT_DEF + 'f'
+    self.env_manager.create_new_symbol(result_var, True)  # create in top block if it doesn't exist
+    lambda_info = self._get_func(lambda_name)
+    self.env_manager.set(result_var, lambda_info)
+    self.skip = self.ip
+    self._advance_to_next_statement()
+
   # create a new environment for a function call
   def _create_new_environment(self, funcname, args):
+    env = None
     formal_params = self.func_manager.get_function_info(funcname)
     if formal_params is None:
       formal_params = self._get_value(funcname)
       if ((formal_params is None) or (formal_params.type() != Type.FUNC)):
         super().error(ErrorType.NAME_ERROR, f"Unknown function name {funcname}", self.ip)
       formal_params = formal_params.value()
+
+    env = copy.deepcopy(formal_params.env)
 
     if len(formal_params.params) != len(args):
       super().error(ErrorType.NAME_ERROR,f"Mismatched parameter count in call to {funcname}", self.ip)
@@ -170,7 +196,7 @@ class Interpreter(InterpreterBase):
 
     # create a new environment for the target function
     # and add our parameters to the env
-    self.env_manager.push()
+    self.env_manager.push(env)
     self.env_manager.import_mappings(tmp_mappings)
 
   def _endfunc(self, return_val = None):
@@ -243,7 +269,10 @@ class Interpreter(InterpreterBase):
       return
 
     #otherwise evaluate the expression and return its value
-    value_type = self._eval_expression(args)
+    if return_type == InterpreterBase.FUNC_DEF: # for function returns
+      value_type = self._get_func(args[0])
+    else:
+      value_type = self._eval_expression(args)
     if value_type.type() != default_value_type.type():
       super().error(ErrorType.TYPE_ERROR,"Non-matching return type", self.ip)
     self._endfunc(value_type)
@@ -302,7 +331,7 @@ class Interpreter(InterpreterBase):
       if args[0] not in self.type_to_default:
         super().error(ErrorType.TYPE_ERROR,f"Invalid type {args[0]}", self.ip)
       # Create the variable with a copy of the default value for the type
-      self.env_manager.set(var_name, copy.copy(self.type_to_default[args[0]]))
+      self.env_manager.set(var_name, copy.deepcopy(self.type_to_default[args[0]]))
 
     self._advance_to_next_statement()
 
@@ -355,7 +384,7 @@ class Interpreter(InterpreterBase):
     self.compatible_types[InterpreterBase.FUNC_DEF] = Type.FUNC
     self.compatible_types[InterpreterBase.OBJECT_DEF] = Type.OBJ
     self.reference_types = {InterpreterBase.REFINT_DEF, Interpreter.REFSTRING_DEF,
-                            Interpreter.REFBOOL_DEF}
+                            Interpreter.REFBOOL_DEF, InterpreterBase.OBJECT_DEF}
 
     # set up names of result variables: resulti, results, resultb
     self.type_to_result = {}
@@ -446,10 +475,13 @@ class Interpreter(InterpreterBase):
     value_type.set(to_value_type)
 
   def _get_func(self, funcname):
-    func_info = self.func_manager.get_function_info(funcname)
-    if not func_info:
-      super().error(ErrorType.NAME_ERROR,f"Unable to locate {funcname} function")
-    return Value(Type.FUNC, func_info)
+    if (funcname == 'resultf'):
+      return self._get_value('resultf')
+    else:
+      func_info = self.func_manager.get_function_info(funcname)
+      if not func_info:
+        super().error(ErrorType.NAME_ERROR,f"Unable to locate {funcname} function")
+      return Value(Type.FUNC, copy.deepcopy(func_info))
 
   # bind the result[s,i,b] variable in the calling function's scope to the proper Value object
   def _set_result(self, value_type):

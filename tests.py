@@ -69,5 +69,64 @@ test2 = [
 'endfunc'
 ]
 
-machine = Interpreter()
-machine.run(test2)
+test22 = [
+'func foo func',
+'  return bar ',
+'endfunc foo',
+'',
+'func bar int',
+'  return 5',
+'endfunc',
+'',
+'func main void',
+' var func f',
+' funccall foo',
+' assign f resultf',
+' funccall f',
+' funccall print resulti ',
+'endfunc',
+]
+
+test_o_1 = [
+'func main void',
+' var object o',
+' assign o.a 5',
+' assign o.b "Testing"',
+' if True',
+'  funccall print o.a',
+'  var object o',
+'  assign o.a "Test"',
+'  funccall print o.a',
+'  assign o.c 10',
+' endif',
+' funccall print o.a',
+' funccall print o.b',
+' funccall print o.c',
+'endfunc',
+]
+
+test_l_1 = [
+'func foo func',
+' var int c',
+' assign c 10',
+' lambda a:int int',
+'  return + a c',
+' endlambda',
+' var func b',
+' assign b resultf',
+' funccall b 3',
+' funccall print resulti',
+' return resultf',
+'endfunc',
+'func main void',
+' funccall print "Testing lambda"',
+' funccall foo',
+' var func c',
+' assign c resultf',
+' funccall c 5',
+' funccall print resulti',
+'endfunc',
+]
+
+machine = Interpreter(trace_output=False)
+machine.run(test_o_1)

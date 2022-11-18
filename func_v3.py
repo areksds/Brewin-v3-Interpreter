@@ -1,9 +1,10 @@
 from intbase import InterpreterBase
 
 class FuncInfo:
-  def __init__(self, params, start_ip):
+  def __init__(self, params, start_ip, env = None):
     self.params = params  # format is [[varname1,typename1],[varname2,typename2],...]
     self.start_ip = start_ip    # line number, zero-based
+    self.env = env # for lambdas, an environment to import
 
 class FunctionManager:
   def __init__(self, tokenized_program):
@@ -32,6 +33,13 @@ class FunctionManager:
   def get_return_type_for_enclosing_function(self, line_num):
     return self.return_types[line_num]
 
+  # set environment for a function
+  def set_env(self, func_name, env):
+    self.func_cache[func_name].env = env
+
+  def get_env(self, func_name):
+    self.func_cache[func_name].env
+
   def _to_tuple(self, formal):
     var_type = formal.split(':')
     return (var_type[0], var_type[1])
@@ -49,8 +57,15 @@ class FunctionManager:
         func_info = FuncInfo(params, line_num + 1)  # function starts executing on line after funcdef
         self.func_cache[func_name] = func_info
         return_type_stack.append(line[-1])
+      
+      if line and line[0] == InterpreterBase.LAMBDA_DEF:
+        func_name = InterpreterBase.LAMBDA_DEF + ':' + str(line_num) # couldn't use create lambda name for some reason
+        params = [self._to_tuple(formal) for formal in line[1:-1]]
+        func_info = FuncInfo(params, line_num + 1)
+        self.func_cache[func_name] = func_info
+        return_type_stack.append(line[-1])
 
-      if line and line[0] == InterpreterBase.ENDFUNC_DEF:
+      if (line and line[0] == InterpreterBase.ENDFUNC_DEF) or (line and line[0] == InterpreterBase.ENDLAMBDA_DEF):
         reset_after_this_line = True
 
       self.return_types.append(return_type_stack[-1])  # each line in the program is assigned a return type based on

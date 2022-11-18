@@ -61,8 +61,11 @@ class EnvironmentManager:
   def block_unnest(self):
     self.environment[-1].pop()
 
-  def push(self):
-    self.environment.append([{}])       # [[...],[...]] -> [[...],[...],[]]
+  def push(self, env = None):
+    if (env):
+      self.environment.append(env)
+    else:
+      self.environment.append([{}])       # [[...],[...]] -> [[...],[...],[]]
 
   def pop(self):
     self.environment.pop()
