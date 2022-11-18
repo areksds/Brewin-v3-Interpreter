@@ -1,6 +1,6 @@
 from interpreterv3 import Interpreter
 
-test10 = [
+test10_x = [
 'func ifunc n:int int',
 ' return n',
 'endfunc',
@@ -37,7 +37,7 @@ test10 = [
 'endfunc',
 ]
 
-test1 = [
+test1_x = [
 'func main void',
 ' var func a',
 ' assign a foo',
@@ -48,7 +48,7 @@ test1 = [
 'endfunc'
 ]
 
-test2 = [
+test2_x = [
 'func main void',
 ' var object a',
 ' assign a.a "test"',
@@ -128,5 +128,311 @@ test_l_1 = [
 'endfunc',
 ]
 
+test1 = [
+'func inc x:int int',
+'  return + x 1',
+'endfunc',
+'',
+'func main void',
+' var func f			# f has a type of func and is a func variable',
+' assign f inc           # f holds the inc function!',
+' funccall f 10          # call inc thru f',
+' funccall print resulti # prints 11',
+'endfunc',
+]
+
+test2 = [
+'func create_lambda x:int func',
+'  lambda y:int int     # defines a lambda/closure and stores in resultf',
+'    var int z',
+'    assign z + x y',
+'    return z',
+'  endlambda',
+'',
+'  return resultf       # return our lambda/closure',
+'endfunc',
+'',
+'func main void',
+'  var func f g',
+'  funccall create_lambda 10   # create a lambda that captures x=10',
+'  assign f resultf            # f holds our lambdas closure',
+' ',
+'  funccall create_lambda 100  # create a lambda that captures x=100',
+'  assign g resultf            # f holds our lambdas closure',
+'',
+'  funccall f 42',
+'  funccall print resulti      # prints 52',
+'',
+'  funccall g 42',
+'  funccall print resulti      # prints 142',
+'endfunc',
+]
+
+test3 = [
+'func main void',
+' var object foo             # foo is an object!',
+' assign foo.x 5             # creates a member x in foo, e.g., foo.x,',
+'                            # and sets its value to 5',
+' assign foo.x + foo.x 1     # increments foo.x',
+' funccall print foo.x',
+' assign foo.x "bar"         # redefines foo.x to be a string',
+' funccall print foo.x',
+'endfunc',
+'   ',
+]
+
+test4 = [
+' # defines a function which will be used as a member function below',
+'func foo i:int void',
+'  assign this.val i    # sets the val member of the passed-in object',
+'endfunc',
+'',
+'func main void',
+'  var object x	',
+'  assign x.our_method foo      # sets x.our_method to foo()',
+'',
+'  funccall x.our_method 42     # calls foo(42)',
+'  funccall print x.val         # prints 42',
+'endfunc',
+]
+
+test5 = [
+'func takes_a_function f:func void',
+'  funccall f 10',
+'endfunc',
+'',
+'func foo x:int void',
+'  funccall print x',
+'endfunc',
+'',
+'func main void',
+'  funccall takes_a_function foo',
+'endfunc',
+]
+
+test6 = [
+'func main void',
+'  var object x',
+'  assign x.member1 42',
+'  assign x.member2 "blah"',	 
+'  funccall foo x',
+'endfunc',
+'',
+'func foo q:object void',
+'  funccall print q.member1',
+'  assign q.member2 “bletch”  # mutates original x.member2 variable',
+'endfunc',
+]
+
+test7 = [
+'func foo x:int int',
+'  return + x 1',
+'endfunc',
+'',
+'func bar func',
+'  return foo',
+'endfunc',
+'',
+'func main void',
+'  var func f',
+'',
+'  funccall bar',
+'  assign f resultf        # resultf contains foo',
+'  funccall f 10',
+'  funccall print resulti  # prints 11',
+'endfunc',
+]
+
+test8 = [
+'func bar object   # the bar function returns an object',
+'  var object x',
+'  assign x.a 10',
+'  assign x.b True',
+'  return x',
+'endfunc',
+'',
+'func main void',
+'  var object q',
+'',
+'  funccall bar',
+'  assign q resulto        # resulto contains x',
+'  funccall print q.b      # prints True',
+'endfunc',
+]
+
+test9 = [
+'func main void  ',
+'  var object x',
+'  assign x.a 10 				# x.a’s type is int',
+'  var int y',
+'  assign y 20',
+'',
+'  assign y * x.a y',
+'  funccall print y			# prints 200',
+'endfunc',
+]
+
+test10 = [
+'func main void ', 
+'  var object x y z',
+'  assign x.a 10',
+' ',
+'  assign y.my_member x',
+'  assign z y.my_member',
+'',
+'  funccall print z.a   # prints 10  ',
+'endfunc',
+]
+
+test11 = [
+'func f i:int void',
+'  assign this.val i    # this refers to the x variable, below',
+'endfunc',
+'',
+'func main void',
+'  var object xyz',
+'',
+'  assign xyz.val 42',
+'  assign xyz.method f',
+'',
+'  funccall xyz.method 52',
+'  funccall print xyz.val  	# prints 52',
+'endfunc',
+]
+
+test12 = [
+'func f i:int void',
+'  assign this.val i    # Name error! “this” is undefined!',
+'endfunc',
+'',
+'func main void',
+'  var object x',
+'',
+'  assign x.val 42',
+'  assign x.method f',
+'',
+'  funccall f 52',
+'  funccall print x.val  	# never gets here',
+'endfunc',
+]
+
+test13 = [
+'func main void',
+'  var object x',
+'',
+'  assign x.val 42',
+'  funccall x.val 52		# x.val is an integer, not a func',
+'endfunc',
+]
+
+test14 = [
+'func main void',
+'  var object x',
+'',
+'  assign x.val 42',
+'  funccall x.blah 52		# name error; x.blah doesn’t exist',
+'endfunc',
+]
+
+test15 = [
+'func main void',
+' var int capture_me',
+' assign capture_me 42',
+'',
+' lambda a:int int             # defines a lambda for int f(int) ',
+'  return + a capture_me		# captures the capture_me variable',
+' endlambda',
+' # resultf holds the closure created by the lambda',
+'',
+' var func f',
+' assign f resultf			# f now points to the closure',
+' funccall f 10			# calls our lambda function!',
+' funccall print resulti    	# prints 52',
+'endfunc',
+]
+
+test16 = [
+'func main void',
+' var int capture_me		# captured',
+' assign capture_me 42',
+'',
+' if > capture_me 10',
+'   var int capture_me_too	# also captured',
+'   assign capture_me_too 1000',
+'   lambda a:int int',
+'    return + + a capture_me capture_me_too',
+'   endlambda',
+' endif',
+'',
+' funccall resultf 10		# resultf contains our closure',
+' funccall print resulti		# prints 1052',
+'endfunc',
+]
+
+test17 = [
+'func main void',
+'  var int a',
+'  var object o',
+'',
+'  assign a 5',
+'  assign o.x 10',
+'',
+'  lambda void',
+'    assign a + a 1',
+'    funccall print a        # prints 6',
+'    assign o.x 20',
+'    funccall print o.x      # prints 20',
+'  endlambda',
+'',
+'  var func f',
+'  assign f resultf',
+'  funccall f',
+'',
+'  funccall print a          # prints 5',
+'  funccall print o.x        # prints 10',
+'endfunc',
+]
+
+test18 = [
+'func main void',
+'  var int capture_me',
+'  assign capture_me 1000',
+'  lambda a:int func			# outer lambda',
+'   var int capture_me2',
+'   assign capture_me2 10000',
+'   lambda b:int int			# nested lambda',
+'    return + + + a capture_me b capture_me2',
+'   endlambda',
+'   return resultf',
+'  endlambda',
+'',
+' var func f g',
+' assign f resultf		# f points at the outer lambda/closure',
+' funccall f 10',
+' assign g resultf		# g points at the inner lambda',
+' funccall g 42',
+' funccall print resulti		# prints 11052',
+'endfunc',
+]
+
+test19 = [
+'func main void',
+' var int capture_me',
+' assign capture_me 42',
+'',
+' if > capture_me 10',
+'   var int capture_me',
+'   assign capture_me 1000',
+'   lambda a:int int',
+'    return + a capture_me	# the captured capture_me’s value is 1000',
+'   endlambda',
+' endif',
+'',
+' var func f',
+' assign f resultf',
+' funccall f 10',
+' funccall print resulti		# prints 1010',
+'endfunc',
+]
 machine = Interpreter(trace_output=False)
-machine.run(test_o_1)
+machine.run(test19)
